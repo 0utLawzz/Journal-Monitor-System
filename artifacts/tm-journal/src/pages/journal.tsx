@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { 
   useGetJournalEntries, 
   useImportJournalEntries, 
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, Trash2, Search, ArrowLeft, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, Trash2, Search, ArrowLeft, ArrowRight, CheckCircle2, AlertCircle, FolderOpen, Download } from "lucide-react";
 
 type ParsedEntry = {
   applicationNo: string;
@@ -160,8 +160,23 @@ export default function JournalEntries() {
     { query: { queryKey: getGetJournalEntriesQueryKey({ page, limit, search: search || undefined }) } }
   );
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const importMutation = useImportJournalEntries();
   const clearMutation = useClearJournalEntries();
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      if (text) setImportData(text);
+    };
+    reader.onerror = () => toast({ title: "Failed to read file", variant: "destructive" });
+    reader.readAsText(file, "utf-8");
+    // reset so same file can be re-selected
+    e.target.value = "";
+  };
 
   const parseResult = useMemo<ParseResult | null>(() => {
     if (!importData.trim()) return null;
@@ -218,15 +233,44 @@ export default function JournalEntries() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[660px] bg-[#FAF6EE] border-[3px] border-[#0C0C0C] rounded-[6px] nb-shadow-lg p-0 overflow-hidden">
               <DialogHeader className="px-6 pt-6 pb-4 border-b-[2px] border-[#0C0C0C] bg-[#E8DFC7]">
-                <DialogTitle
-                  className="text-2xl text-[#0C0C0C]"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.05em" }}
-                >
-                  Import Journal Data
-                </DialogTitle>
-                <p className="text-xs font-[family-name:var(--font-mono)] text-[rgba(12,12,12,0.55)] mt-1">
-                  Paste CSV or tab-separated data. Headers are auto-detected.
-                </p>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <DialogTitle
+                      className="text-2xl text-[#0C0C0C]"
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.05em" }}
+                    >
+                      Import Journal Data
+                    </DialogTitle>
+                    <p className="text-xs font-[family-name:var(--font-mono)] text-[rgba(12,12,12,0.55)] mt-1">
+                      Upload a .csv file or paste data below. Headers are auto-detected.
+                    </p>
+                  </div>
+                  <div className="flex gap-2 shrink-0 pt-1">
+                    <a
+                      href="/example-journal.csv"
+                      download="example-journal.csv"
+                      className="inline-flex items-center gap-1.5 px-3 h-8 text-[10px] font-[family-name:var(--font-mono)] uppercase tracking-wide border-2 border-[#0C0C0C] bg-[#FAF6EE] rounded-[6px] hover:-translate-y-0.5 transition-transform nb-shadow-sm text-[#0C0C0C] whitespace-nowrap"
+                    >
+                      <Download className="h-3 w-3" />
+                      Example CSV
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 px-3 h-8 text-[10px] font-[family-name:var(--font-mono)] uppercase tracking-wide border-2 border-[#0C0C0C] bg-[#0D9970] text-white rounded-[6px] hover:-translate-y-0.5 transition-transform nb-shadow-sm whitespace-nowrap cursor-pointer"
+                    >
+                      <FolderOpen className="h-3 w-3" />
+                      Open File
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,.tsv,.txt"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                  </div>
+                </div>
               </DialogHeader>
 
               <div className="space-y-4 p-6">
