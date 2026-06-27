@@ -6,6 +6,7 @@ import {
   GenerateDocsResponse,
   ExportDataResponse,
 } from "@workspace/api-zod";
+import { generateDocument, isGoogleConnected } from "../lib/google-docs";
 
 const router: IRouter = Router();
 
@@ -137,9 +138,18 @@ router.post("/actions/generate-docs", async (_req, res): Promise<void> => {
   if (toGenerate.length === 0) {
     res.json(GenerateDocsResponse.parse({
       success: true,
-      message: "No items with status MAILMERGE found (or already generated)",
+      message: "No items with status MAILMERGE found (or already generated). Set review items to MAILMERGE status first.",
       count: 0,
     }));
+    return;
+  }
+
+  // Check Google is connected before starting
+  const googleConnected = await isGoogleConnected();
+  if (!googleConnected) {
+    res.status(503).json({
+      error: "Google account not connected. Please connect Google Drive in the Replit Integrations panel, then try again.",
+    });
     return;
   }
 
@@ -150,42 +160,61 @@ router.post("/actions/generate-docs", async (_req, res): Promise<void> => {
   const existingRecords = await db.select().from(tmRecordsTable);
   let serialStart = existingRecords.length + 1;
   let processed = 0;
+  let failed = 0;
   const now = new Date().toISOString();
+  const errors: string[] = [];
 
   for (const item of toGenerate) {
     const serialNo = `PUB-${String(serialStart).padStart(3, "0")}`;
     serialStart++;
 
-    const docUrl = `[${serialNo}] ${item.title ?? "TITLE"} — Pending Google Drive integration`;
+    try {
+      const docUrl = await generateDocument({
+        serialNo,
+        caseNo: item.caseNo ?? item.applicationNo ?? "",
+        applicationNo: item.applicationNo ?? "",
+        classNo: item.classNo ?? "",
+        title: item.title ?? "",
+        journalNo,
+      });
 
-    await db.update(reviewItemsTable)
-      .set({ status: "GENERATED", generatedDoc: docUrl, generatedAt: now })
-      .where(eq(reviewItemsTable.id, item.id));
+      await db.update(reviewItemsTable)
+        .set({ status: "GENERATED", generatedDoc: docUrl, generatedAt: now })
+        .where(eq(reviewItemsTable.id, item.id));
 
-    await db.insert(tmRecordsTable).values({
-      journalNo,
-      journalDate: journalDate || null,
-      tmNo: item.applicationNo,
-      caseNo: item.caseNo ?? null,
-      classNo: item.classNo ?? null,
-      applicant: item.applicant ?? null,
-      title: item.title ?? null,
-      agent: item.agent ?? null,
-      applicationNo: item.applicationNo,
-      filingDate: item.filingDate ?? null,
-      matchedTerm: item.matchedTerm ?? null,
-      matchType: item.matchType ?? null,
-      remarks: null,
-      docUrl,
-      pdfUrl: null,
-    });
+      await db.insert(tmRecordsTable).values({
+        journalNo,
+        journalDate: journalDate || null,
+        tmNo: item.applicationNo,
+        caseNo: item.caseNo ?? null,
+        classNo: item.classNo ?? null,
+        applicant: item.applicant ?? null,
+        title: item.title ?? null,
+        agent: item.agent ?? null,
+        applicationNo: item.applicationNo,
+        filingDate: item.filingDate ?? null,
+        matchedTerm: item.matchedTerm ?? null,
+        matchType: item.matchType ?? null,
+        remarks: null,
+        docUrl,
+        pdfUrl: null,
+      });
 
-    processed++;
+      processed++;
+    } catch (err: unknown) {
+      failed++;
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${item.applicationNo}: ${msg}`);
+    }
   }
 
+  const parts = [`Generated ${processed} Google Doc(s).`];
+  if (failed > 0) parts.push(`${failed} failed.`);
+  if (errors.length > 0) parts.push(errors.join("; "));
+
   res.json(GenerateDocsResponse.parse({
-    success: true,
-    message: `Generated ${processed} record(s). Change status to MAILMERGE to trigger generation.`,
+    success: processed > 0,
+    message: parts.join(" "),
     count: processed,
   }));
 });
