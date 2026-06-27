@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "TM Journal Monitor"
+version = "1.0.0"
+id = "artifacts/tm-journal"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20698
+
+[services.development]
+run = "pnpm --filter @workspace/tm-journal run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/tm-journal", "run", "build" ]
+publicDir = "artifacts/tm-journal/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20698"
+BASE_PATH = "/"

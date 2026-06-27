@@ -3,20 +3,30 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Trademark Journal Monitoring System API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: dashboard
+    description: Dashboard configuration
+  - name: journal
+    description: Journal entries
+  - name: review
+    description: Review/scan results
+  - name: records
+    description: Generated document records
+  - name: actions
+    description: System actions (scan, generate, export)
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +34,633 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Get dashboard configuration
+      responses:
+        "200":
+          description: Dashboard config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+    put:
+      operationId: updateDashboard
+      tags: [dashboard]
+      summary: Update dashboard configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DashboardInput"
+      responses:
+        "200":
+          description: Updated dashboard config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+
+  /dashboard/keywords:
+    get:
+      operationId: getKeywords
+      tags: [dashboard]
+      summary: Get all keywords
+      responses:
+        "200":
+          description: List of keywords
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Keyword"
+    post:
+      operationId: addKeyword
+      tags: [dashboard]
+      summary: Add a keyword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KeywordInput"
+      responses:
+        "201":
+          description: Created keyword
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Keyword"
+
+  /dashboard/keywords/{id}:
+    delete:
+      operationId: deleteKeyword
+      tags: [dashboard]
+      summary: Delete a keyword
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /dashboard/tm-numbers:
+    get:
+      operationId: getTmNumbers
+      tags: [dashboard]
+      summary: Get all TM numbers
+      responses:
+        "200":
+          description: List of TM numbers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TmNumber"
+    post:
+      operationId: addTmNumber
+      tags: [dashboard]
+      summary: Add a TM number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TmNumberInput"
+      responses:
+        "201":
+          description: Created TM number
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TmNumber"
+
+  /dashboard/tm-numbers/{id}:
+    delete:
+      operationId: deleteTmNumber
+      tags: [dashboard]
+      summary: Delete a TM number
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /journal:
+    get:
+      operationId: getJournalEntries
+      tags: [journal]
+      summary: Get all journal entries
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Journal entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalPage"
+    post:
+      operationId: importJournalEntries
+      tags: [journal]
+      summary: Import journal entries (bulk)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JournalImport"
+      responses:
+        "201":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+    delete:
+      operationId: clearJournalEntries
+      tags: [journal]
+      summary: Clear all journal entries
+      responses:
+        "204":
+          description: Cleared
+
+  /journal/normalize-dates:
+    post:
+      operationId: normalizeDates
+      tags: [journal]
+      summary: Normalize filing dates in journal
+      responses:
+        "200":
+          description: Normalize result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+
+  /review:
+    get:
+      operationId: getReviewItems
+      tags: [review]
+      summary: Get review items
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: journalNo
+          in: query
+          schema:
+            type: string
+        - name: matchType
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Review items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReviewItem"
+    delete:
+      operationId: clearReviewItems
+      tags: [review]
+      summary: Clear review items
+      responses:
+        "204":
+          description: Cleared
+
+  /review/{id}:
+    patch:
+      operationId: updateReviewItem
+      tags: [review]
+      summary: Update review item status or notes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewItemUpdate"
+      responses:
+        "200":
+          description: Updated review item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewItem"
+    delete:
+      operationId: deleteReviewItem
+      tags: [review]
+      summary: Delete a review item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /records:
+    get:
+      operationId: getRecords
+      tags: [records]
+      summary: Get all records
+      parameters:
+        - name: journalNo
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TmRecord"
+
+  /actions/scan:
+    post:
+      operationId: runScan
+      tags: [actions]
+      summary: Scan journal for keyword/TM matches
+      responses:
+        "200":
+          description: Scan result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResult"
+
+  /actions/generate-docs:
+    post:
+      operationId: generateDocs
+      tags: [actions]
+      summary: Generate documents for MAILMERGE items
+      responses:
+        "200":
+          description: Generation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+
+  /actions/export:
+    post:
+      operationId: exportData
+      tags: [actions]
+      summary: Export/backup all data as CSV/JSON
+      responses:
+        "200":
+          description: Export result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportResult"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [dashboard]
+      summary: Get system statistics
+      responses:
+        "200":
+          description: System stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    Dashboard:
+      type: object
+      required: [id, journalNo, journalDate]
+      properties:
+        id:
+          type: integer
+        journalNo:
+          type: ["string", "null"]
+        journalDate:
+          type: ["string", "null"]
+        keywordMatchMode:
+          type: string
+
+    DashboardInput:
+      type: object
+      properties:
+        journalNo:
+          type: string
+        journalDate:
+          type: ["string", "null"]
+        keywordMatchMode:
+          type: string
+
+    Keyword:
+      type: object
+      required: [id, value]
+      properties:
+        id:
+          type: integer
+        value:
+          type: string
+
+    KeywordInput:
+      type: object
+      required: [value]
+      properties:
+        value:
+          type: string
+
+    TmNumber:
+      type: object
+      required: [id, value]
+      properties:
+        id:
+          type: integer
+        value:
+          type: string
+
+    TmNumberInput:
+      type: object
+      required: [value]
+      properties:
+        value:
+          type: string
+
+    JournalEntry:
+      type: object
+      required: [id, applicationNo]
+      properties:
+        id:
+          type: integer
+        applicationNo:
+          type: string
+        title:
+          type: ["string", "null"]
+        classNo:
+          type: ["string", "null"]
+        applicant:
+          type: ["string", "null"]
+        agent:
+          type: ["string", "null"]
+        filingDate:
+          type: ["string", "null"]
+
+    JournalPage:
+      type: object
+      required: [entries, total]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/JournalEntry"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    JournalImport:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items:
+            type: object
+            required: [applicationNo]
+            properties:
+              applicationNo:
+                type: string
+              title:
+                type: string
+              classNo:
+                type: string
+              applicant:
+                type: string
+              agent:
+                type: string
+              filingDate:
+                type: string
+
+    ImportResult:
+      type: object
+      required: [imported, skipped]
+      properties:
+        imported:
+          type: integer
+        skipped:
+          type: integer
+        message:
+          type: string
+
+    ReviewItem:
+      type: object
+      required: [id, journalNo, applicationNo, status]
+      properties:
+        id:
+          type: integer
+        journalNo:
+          type: string
+        journalDate:
+          type: ["string", "null"]
+        applicationNo:
+          type: string
+        caseNo:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        classNo:
+          type: ["string", "null"]
+        applicant:
+          type: ["string", "null"]
+        agent:
+          type: ["string", "null"]
+        filingDate:
+          type: ["string", "null"]
+        matchedTerm:
+          type: ["string", "null"]
+        matchType:
+          type: ["string", "null"]
+        status:
+          type: string
+        generatedDoc:
+          type: ["string", "null"]
+        generatedPdf:
+          type: ["string", "null"]
+        generatedAt:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    ReviewItemUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+        notes:
+          type: string
+        generatedDoc:
+          type: string
+        generatedPdf:
+          type: string
+
+    TmRecord:
+      type: object
+      required: [id, journalNo, applicationNo]
+      properties:
+        id:
+          type: integer
+        journalNo:
+          type: string
+        journalDate:
+          type: ["string", "null"]
+        tmNo:
+          type: ["string", "null"]
+        caseNo:
+          type: ["string", "null"]
+        classNo:
+          type: ["string", "null"]
+        applicant:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        agent:
+          type: ["string", "null"]
+        applicationNo:
+          type: string
+        filingDate:
+          type: ["string", "null"]
+        matchedTerm:
+          type: ["string", "null"]
+        matchType:
+          type: ["string", "null"]
+        remarks:
+          type: ["string", "null"]
+        docUrl:
+          type: ["string", "null"]
+        pdfUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    ScanResult:
+      type: object
+      required: [matched, skipped, total]
+      properties:
+        matched:
+          type: integer
+        skipped:
+          type: integer
+        total:
+          type: integer
+        journalNo:
+          type: string
+        message:
+          type: string
+
+    ActionResult:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        count:
+          type: integer
+
+    ExportResult:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        files:
+          type: array
+          items:
+            type: string
+
+    Stats:
+      type: object
+      required: [totalJournalEntries, totalReviewItems, totalRecords, reviewByStatus]
+      properties:
+        totalJournalEntries:
+          type: integer
+        totalReviewItems:
+          type: integer
+        totalRecords:
+          type: integer
+        pendingReview:
+          type: integer
+        approvedForMerge:
+          type: integer
+        generated:
+          type: integer
+        keywordMatches:
+          type: integer
+        tmMatches:
+          type: integer
+        reviewByStatus:
+          type: array
+          items:
+            type: object
+            required: [status, count]
+            properties:
+              status:
+                type: string
+              count:
+                type: integer
